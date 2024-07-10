@@ -17,13 +17,13 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'CSV Data Viewer',
+      title: 'TLT App',
       theme: ThemeData(
         colorScheme:
             ColorScheme.fromSwatch().copyWith(secondary: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'CSV Data Viewer'),
+      home: const MyHomePage(title: 'TLT APP : Raw Material Matcher'),
     );
   }
 }
@@ -114,7 +114,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
       final file2 = uploadInput.files![0];
       final data2 = await _parseCsvFile(file2);
-      print("file uploaded");
+      // print("file uploaded");
 
       setState(() {
         vendorNames.clear();
@@ -177,7 +177,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title),
+        title: Center(child: Text(widget.title)),
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -190,10 +190,14 @@ class _MyHomePageState extends State<MyHomePage> {
                 spacing: 40,
                 children: [
                   SizedBox(
-                    width: 200,
+                    width: 250,
                     child: ElevatedButton(
                       onPressed: pickFirstFile,
-                      child: const Text('Pick First CSV File'),
+                      child: const Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: Center(
+                            child: Text('Pick First CSV File \n or Orders')),
+                      ),
                     ),
                   ),
                 ],
@@ -202,10 +206,15 @@ class _MyHomePageState extends State<MyHomePage> {
                 height: 20,
               ),
               SizedBox(
-                width: 200,
+                width: 250,
                 child: ElevatedButton(
                   onPressed: pickSecondFile,
-                  child: const Text('Pick Second CSV File'),
+                  child: const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: Center(
+                        child:
+                            Text('Pick Second CSV File \n or Raw Materials')),
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -316,6 +325,7 @@ class _RawMaterialOrderMatcherState extends State<RawMaterialOrderMatcher> {
       return {
         'RawMaterialId': rawMaterial['RawMaterialId'],
         'rawLength': rawMaterial['rawLength'],
+        'pendingDays': rawMaterial['pendingDays'],
       };
     }).toList();
 
@@ -347,6 +357,7 @@ class _RawMaterialOrderMatcherState extends State<RawMaterialOrderMatcher> {
     // Sorting raw materials and orders by their lengths in descending order
     rawMaterials.sort((a, b) => b['rawLength'].compareTo(a['rawLength']));
     orders.sort((a, b) => b['Length'].compareTo(a['Length']));
+    // print("rawMaterials$rawMaterials");
 
     rawMaterialUsage.clear();
     unusedRawMaterials = Set.from(
@@ -356,6 +367,7 @@ class _RawMaterialOrderMatcherState extends State<RawMaterialOrderMatcher> {
 
     for (var rawMaterial in rawMaterials) {
       int leftover = rawMaterial['rawLength'];
+
       rawMaterialUsage[rawMaterial['rawLength']] = [];
 
       for (var order in orders) {
@@ -375,6 +387,7 @@ class _RawMaterialOrderMatcherState extends State<RawMaterialOrderMatcher> {
       } else {
         unusedRawMaterials.remove(rawMaterial['rawLength']);
       }
+      // print(rawMaterialUsage);
     }
 
     if (mounted) {
@@ -382,7 +395,13 @@ class _RawMaterialOrderMatcherState extends State<RawMaterialOrderMatcher> {
     }
   }
 
-  void handleSelection(int selectedRawMaterialLength) {
+  void handleSelection(int selectedRawMaterialid) {
+    // print(selectedRawMaterialid);
+
+    int selectedRawMaterialLength = rawMaterials.firstWhere((rawMaterial) =>
+        rawMaterial['RawMaterialId'] == selectedRawMaterialid)['rawLength'];
+    // print(selectedRawMaterialLength);
+
     List<int> orderIds = [];
     List<int> selectedOrders = rawMaterialUsage[selectedRawMaterialLength]!;
     int usedAmount = selectedOrders.fold(
@@ -398,8 +417,10 @@ class _RawMaterialOrderMatcherState extends State<RawMaterialOrderMatcher> {
             rawMaterial['rawLength'] ==
             selectedRawMaterialLength)['rawLength'] -
         usedAmount;
-    int selectedRawMaterialId = rawMaterials.firstWhere((rawMaterial) =>
-        rawMaterial['rawLength'] == selectedRawMaterialLength)['RawMaterialId'];
+    // int selectedRawMaterialId = rawMaterials.firstWhere((rawMaterial) =>
+    //     rawMaterial['rawLength'] == selectedRawMaterialLength)['RawMaterialId'];
+    int pendingDays = rawMaterials.firstWhere((rawMaterial) =>
+        rawMaterial['RawMaterialId'] == selectedRawMaterialid)['pendingDays'];
 
     rawMaterials.removeWhere(
         (rawMaterial) => rawMaterial['rawLength'] == selectedRawMaterialLength);
@@ -409,7 +430,8 @@ class _RawMaterialOrderMatcherState extends State<RawMaterialOrderMatcher> {
 
     selectedCombinations.add({
       'rawMaterial': selectedRawMaterialLength,
-      'RawMaterialId': selectedRawMaterialId,
+      'RawMaterialId': selectedRawMaterialid,
+      'pendingDays': pendingDays,
       'orders': selectedOrders,
       'Ids': orderIds,
       'leftover': leftover
@@ -453,9 +475,11 @@ class _RawMaterialOrderMatcherState extends State<RawMaterialOrderMatcher> {
               List<int> orders = entry.value;
               int usedAmount = orders.reduce((a, b) => a + b);
               int leftover = rawMaterial - usedAmount;
+              int pendingDays = rawMaterials.firstWhere(
+                  (raw) => raw['rawLength'] == rawMaterial)['pendingDays'];
               return ListTile(
                 title: Text(
-                    "Raw material $rawMaterial used in orders: $orders and leftover is $leftover"),
+                    "Raw material $rawMaterial (Pending Days: $pendingDays) used in orders: $orders and leftover is $leftover"),
               );
             }),
             // Text("Unused Raw Materials: $unusedRawMaterials"),
@@ -475,12 +499,50 @@ class _RawMaterialOrderMatcherState extends State<RawMaterialOrderMatcher> {
                             List<int> orders = entry.value;
                             int usedAmount = orders.reduce((a, b) => a + b);
                             int leftover = rawMaterial - usedAmount;
+                            int pendingDays = rawMaterials.firstWhere((raw) =>
+                                raw['rawLength'] == rawMaterial)['pendingDays'];
+
                             return ListTile(
                               title: Text(
-                                  "Raw material $rawMaterial used in orders: $orders and leftover is $leftover"),
+                                  "Raw material $rawMaterial (Pending Days: $pendingDays) used in orders: $orders and leftover is $leftover"),
                               onTap: () {
-                                handleSelection(rawMaterial);
+                                // handleSelection(rawMaterial);
                                 Navigator.of(context).pop();
+
+                                // Show another dialog with matching raw materials
+                                List<Map<String, dynamic>>
+                                    matchingRawMaterials = rawMaterials
+                                        .where((rawM) =>
+                                            rawM['rawLength'] == rawMaterial)
+                                        .toList();
+
+                                showDialog(
+                                  context: context,
+                                  builder: (context) {
+                                    return AlertDialog(
+                                      title: const Text('Select Raw Material'),
+                                      content: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: matchingRawMaterials
+                                            .map((rawMaterial) {
+                                          int rawMaterialId =
+                                              rawMaterial['RawMaterialId'];
+                                          int pendingDays =
+                                              rawMaterial['pendingDays'];
+                                          return ListTile(
+                                            title: Text(
+                                                "Raw Material Id: $rawMaterialId, Pending Days: $pendingDays"),
+                                            onTap: () {
+                                              handleSelection(rawMaterialId);
+
+                                              Navigator.of(context).pop();
+                                            },
+                                          );
+                                        }).toList(),
+                                      ),
+                                    );
+                                  },
+                                );
                               },
                             );
                           }).toList(),
