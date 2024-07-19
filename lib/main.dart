@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:html' as html;
 import 'dart:html';
+import 'dart:ui';
 import 'package:csv/csv.dart';
 import 'package:flutter/material.dart' hide TableRow;
 import 'package:pdf/pdf.dart';
@@ -23,7 +24,203 @@ class MyApp extends StatelessWidget {
             ColorScheme.fromSwatch().copyWith(secondary: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'TLT APP : Raw Material Matcher'),
+      home: const LoginPage(),
+    );
+  }
+}
+
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+
+  @override
+  _LoginPageState createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage>
+    with SingleTickerProviderStateMixin {
+  final _formKey = GlobalKey<FormState>();
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isLoading = false;
+
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(seconds: 3),
+      vsync: this,
+    )..repeat(reverse: true);
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _login() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      final username = _usernameController.text;
+      final password = _passwordController.text;
+
+      await Future.delayed(const Duration(seconds: 2));
+
+      if (username == "admin" && password == "admin") {
+        _usernameController.clear();
+        _passwordController.clear();
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                const MyHomePage(title: 'TLT APP : Raw Material Matcher'),
+          ),
+        );
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Login successful!')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Login failed')),
+        );
+      }
+
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Center(child: Text('Login Page'))),
+      body: Stack(
+        children: [
+          AnimatedBuilder(
+            animation: _animation,
+            builder: (context, child) {
+              return Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.blue.withOpacity(0.6),
+                      Colors.purple.withOpacity(0.6),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    stops: [_animation.value, 1.0 - _animation.value],
+                  ),
+                ),
+              );
+            },
+          ),
+          Center(
+            child: Container(
+              width: 400.0,
+              padding: const EdgeInsets.all(16.0),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12.0),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 10.0,
+                    spreadRadius: 5.0,
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12.0),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: TextFormField(
+                            controller: _usernameController,
+                            decoration: InputDecoration(
+                              labelText: 'Username',
+                              prefixIcon: const Icon(Icons.person),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12.0),
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter your username';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 16.0),
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: TextFormField(
+                            controller: _passwordController,
+                            decoration: InputDecoration(
+                              labelText: 'Password',
+                              prefixIcon: const Icon(Icons.lock),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12.0),
+                              ),
+                            ),
+                            obscureText: true,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter your password';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 24.0),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _login,
+                            style: ElevatedButton.styleFrom(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 16.0),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12.0),
+                              ),
+                              textStyle: const TextStyle(fontSize: 16.0),
+                            ),
+                            child: _isLoading
+                                ? const CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white),
+                                  )
+                                : const Text('Login'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -475,11 +672,10 @@ class _RawMaterialOrderMatcherState extends State<RawMaterialOrderMatcher> {
               List<int> orders = entry.value;
               int usedAmount = orders.reduce((a, b) => a + b);
               int leftover = rawMaterial - usedAmount;
-              int pendingDays = rawMaterials.firstWhere(
-                  (raw) => raw['rawLength'] == rawMaterial)['pendingDays'];
+
               return ListTile(
                 title: Text(
-                    "Raw material $rawMaterial (Pending Days: $pendingDays) used in orders: $orders and leftover is $leftover"),
+                    "Raw material $rawMaterial used in orders: $orders and leftover is $leftover"),
               );
             }),
             // Text("Unused Raw Materials: $unusedRawMaterials"),
@@ -499,12 +695,10 @@ class _RawMaterialOrderMatcherState extends State<RawMaterialOrderMatcher> {
                             List<int> orders = entry.value;
                             int usedAmount = orders.reduce((a, b) => a + b);
                             int leftover = rawMaterial - usedAmount;
-                            int pendingDays = rawMaterials.firstWhere((raw) =>
-                                raw['rawLength'] == rawMaterial)['pendingDays'];
 
                             return ListTile(
                               title: Text(
-                                  "Raw material $rawMaterial (Pending Days: $pendingDays) used in orders: $orders and leftover is $leftover"),
+                                  "Raw material $rawMaterial used in orders: $orders and leftover is $leftover"),
                               onTap: () {
                                 // handleSelection(rawMaterial);
                                 Navigator.of(context).pop();
